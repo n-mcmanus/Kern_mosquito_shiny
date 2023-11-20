@@ -11,14 +11,10 @@ library(leaflet)       ## Interactive map
 library(raster)        ## Leaflet-friendly raster pkg
 library(sf)            ## Leaflet-friendly vector pkg
 
-## Rasters
-# wnv_trans <- raster(here('data/Kern_transmission_raster_wgs84.tif'))
-# water <- raster(here('data/water/water_reproj.tif'))
-
 ## Vectors
 zips_sf <- st_read(here('data/zipcodes/kern_zips.shp'))
 kern_sf <- st_read(here('data/counties_ca/kern.shp'))
-# valley_sf <- st_read(here('data/central_valley/valley.shp'))
+valley_sf <- st_read(here('data/central_valley/valley.shp'))
 
 ## Data frames
 water_zip_df <- read_csv(here("data/water/water_acre_zipcode.csv"))
@@ -27,7 +23,7 @@ wnv_df <- read_csv(here("data/traps/plotting/wnvMIR_plotting.csv"))
 slev_df <- read_csv(here("data/traps/plotting/slevMIR_plotting.csv"))
 abund_df <- read_csv(here('data/traps/plotting/abundance_plotting.csv')) %>% 
   janitor::clean_names()
-temp_zip_df <- read_csv(here('data/temp/kern_tmean_20180101_20230731.csv')) %>% 
+temp_zip_df <- read_csv(here('data/temp/kern_tmean_20100401_20230930.csv')) %>% 
   mutate(cx_opt = factor(cx_opt),
          cx_opt = fct_relevel(cx_opt, levels = c("optimal", "in range", "out range")))
 
@@ -42,7 +38,7 @@ function(input, output, session) {
   ## Initial modal on app launch
   shinyalert(
     title = "Welcome",
-    text = paste0("This app let's you explore the risks and hazards associated with West Nile Virus (WNV) transmission in Kern County, California. Information by zip code* can be explored by either manually typing the zip code at the upper right, or by clicking the location on the map.", "<br>", "<br>", "For more information on WNV transmission and the data used for this app, select the 'More Info' button or click on the information icon at the top of the page.", "<br>", "<br>", "<span style='font-size: 13px;'>", "<i>", "*(Note: Zip code boundaries have been limited to the extent present within both Kern County and the California Central Valley. These boundaries can be visually toggled by (un)selecting layers listed at the top left of the map.", "</i>", ")",  "</span>"),
+    text = paste0("This app lets you explore the risks and hazards associated with mosquito-borne diseases (MBD) in Kern County, California. Information by zip code* can be explored by either manually entering the zip code of interest, or by clicking the location on the map.", "<br>", "<br>", "For more information on MBD transmission, select the 'More Info' button or click on the information icon at the top of the page.", "<br>", "<br>", "<span style='font-size: 13px;'>", "<i>", "*(Note: Zip code boundaries have been limited to the extent present within both Kern County and the California Central Valley. These boundaries can be visually toggled by (un)selecting layers listed at the top left of the map.", "</i>", ")",  "</span>"),
     size = "m", 
     closeOnEsc = TRUE,
     closeOnClickOutside = TRUE,
@@ -67,6 +63,10 @@ function(input, output, session) {
   
   
   # TAB 1 - Trap Data ##########################################################
+  observeEvent(input$link_to_info, {
+    newValue <- "tab4"
+    updateTabItems(session, "nav", newValue)
+  })
   
   ## RESPONSIVE SIDE PANEL WIDGETS --------------------
   
@@ -139,9 +139,9 @@ function(input, output, session) {
                    group = "Kern county") %>% 
       
       ### Central valley
-      # addPolylines(data = valley_sf,
-      #              color = 'blue', weight = 3, fillOpacity = 0,
-      #              group = "Central Valley") %>% 
+      addPolylines(data = valley_sf,
+                   color = 'blue', weight = 2.5, fillOpacity = 0,
+                   group = "Central Valley") %>%
       
       ## Create map groups
       addLayersControl(
@@ -723,26 +723,26 @@ function(input, output, session) {
   
   #### Date range --------------------
   ## Date header
-  output$dates_header <- renderText({
-    ## If invalid zip, don't show text
-    if(!(zipcode_d() %in% zips_sf$zipcode)) {
-      return(NULL)
-    } else {
-      paste("<h3>", "Date range:", "</h3>")
-    }
-  })
-  
-  ## Risk date range
-  output$risk_dateRange <- renderUI({
-    if(!(zipcode_d() %in% zips_sf$zipcode)) {
-      return(NULL)
-    } else {
-      dateRangeInput("risk_dateRange",
-                     label = NULL,
-                     start = "2023-01-01",
-                     end = "2023-07-31")
-    }
-  })
+  # output$dates_header <- renderText({
+  #   ## If invalid zip, don't show text
+  #   if(!(zipcode_d() %in% zips_sf$zipcode)) {
+  #     return(NULL)
+  #   } else {
+  #     paste("<h3>", "Date range:", "</h3>")
+  #   }
+  # })
+  # 
+  # ## Risk date range
+  # output$risk_dateRange <- renderUI({
+  #   if(!(zipcode_d() %in% zips_sf$zipcode)) {
+  #     return(NULL)
+  #   } else {
+  #     dateRangeInput("risk_dateRange",
+  #                    label = NULL,
+  #                    start = "2023-01-01",
+  #                    end = "2023-07-31")
+  #   }
+  # })
   
   ## Validation text for risk date range
   ivTemp <- InputValidator$new()
@@ -755,12 +755,12 @@ function(input, output, session) {
     }
   })
   ### Dates w/in data range
-  ivTemp$add_rule("temp_dateRange", 
-                  ~ if(input$risk_dateRange[1] < "2018-01-01") 
-                    "Start date must be after 2018-01-01.")
-  ivTemp$add_rule("temp_dateRange", 
-                  ~ if(input$risk_dateRange[2] > "2023-07-31") 
-                    "End date must be before 2023-07-31.")
+  ivTemp$add_rule("risk_dateRange", 
+                  ~ if(input$risk_dateRange[1] < "2010-04-01") 
+                    "Start date must be after 2010-04-01.")
+  ivTemp$add_rule("risk_dateRange", 
+                  ~ if(input$risk_dateRange[2] > "2023-09-30") 
+                    "End date must be before 2023-09-30.")
   
   ivTemp$enable()
   
@@ -1029,9 +1029,9 @@ function(input, output, session) {
                    group = "Kern county") %>% 
     
       ## Central valley
-      # addPolylines(data = valley_sf,
-      #              color = 'blue', weight = 3, fillOpacity = 0,
-      #              group = "Central Valley") %>% 
+      addPolylines(data = valley_sf,
+                   color = 'blue', weight = 2.5, fillOpacity = 0,
+                   group = "Central Valley") %>%
       
       #### Create map groups -----------------------------
       addLayersControl(
