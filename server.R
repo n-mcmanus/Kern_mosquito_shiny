@@ -5,7 +5,7 @@ library(shinyalert)    ## Modals
 library(shinyvalidate) ## Text box validation messages
 library(tidyverse)     ## Always
 library(here)          ## Easier reading/writing data
-library(gganimate)     ## plot animations
+library(ggiraph)       ## interactive plots
 library(lubridate)     ## Wrangling/plotting dates
 library(leaflet)       ## Interactive map
 library(raster)        ## Leaflet-friendly raster pkg
@@ -124,7 +124,7 @@ function(input, output, session) {
       
       ### Zip codes
       addPolygons(data = zips_sf, color = "#343434",
-                  weight = 2, fillOpacity = 0.1,
+                  weight = 2, fillOpacity = 0.05,
                   label = paste0("Zip code: ", zips_sf$zipcode),
                   labelOptions = labelOptions(textsize = "11px"),
                   highlight = highlightOptions(weight = 5,
@@ -160,15 +160,11 @@ function(input, output, session) {
         position = 'bottomright',
         toggleDisplay = TRUE) %>% 
       
-      ## Add legend 
-      # addLegend(pal = pal, values = values(wnv_trans),
-      #           position = "topleft",
-      #           title = "WNV Transmission </br> Efficiency") %>% 
       setView(-119.2, 35.38, zoom = 9)
   }) ## END LEAFLET
   
   
-  ### Interactive Leaflet elements: 
+  ### Interactive Leaflet elements:  -----------------------
   ## Click on zip code polygon to input value in text box
   observe({
     event <- input$trapMap_shape_click
@@ -180,6 +176,7 @@ function(input, output, session) {
                     inputId = "zip_box_trap", 
                     value = event$id)
   })
+  
   
   ## Zoom and highlight zip code
   observe({
@@ -202,6 +199,42 @@ function(input, output, session) {
                    data = geom, group = "highlighted_polygon")
   })
   
+  # ## TEST UPDATE COLORS FOR WNV
+  # observe({
+  #   ## List w/pos MIR during time range
+  #   wnvPos <- wnv_df %>% 
+  #     dplyr::filter(date>=input$trap_dateRange[1] & date<=input$trap_dateRange[2]) %>% 
+  #     dplyr::filter(mir_all > 0) %>% 
+  #     dplyr::filter(!is.na(zipcode))
+  #   
+  #   slevPos <- slev_df %>% 
+  #     dplyr::filter(date>=input$trap_dateRange[1] & date<=input$trap_dateRange[2]) %>% 
+  #     dplyr::filter(mir_all > 0) %>% 
+  #     dplyr::filter(!is.na(zipcode))
+  #   
+  #   ## Filter zips to keep those with pos WNV
+  #   wnvZips <- zips_sf %>% 
+  #     dplyr::filter(zipcode %in% wnvPos$zipcode)
+  #   
+  #   slevZips <- zips_sf %>% 
+  #     dplyr::filter(zipcode %in% slevPos$zipcode)
+  #   
+  #   
+  #   ##update map
+  #   leafletProxy("trapMap") %>% 
+  #     clearGroup("wnvPos") %>% 
+  #     addPolygons(stroke = TRUE, weight = 2, color = "#8b4726",
+  #                 fill = TRUE, fillColor = "#ee7942", fillOpacity = 0.4,
+  #                 label = paste0("Zip code: ", wnvZips$zipcode),
+  #                 labelOptions = labelOptions(textsize = "11px"),
+  #                 highlight = highlightOptions(weight = 5,
+  #                                              color = "white",
+  #                                              bringToFront = TRUE),
+  #                 data = wnvZips, group = "wnvPos",
+  #                 layerId = ~zipcode)
+  #   
+  # })
+  
   
   ## Reactive caption for map
   output$trapMap_caption <- renderText({
@@ -210,7 +243,7 @@ function(input, output, session) {
   
   
   
-  ### Filter Trap Data ----------------------------------------------------
+  ## Filter Trap Data ----------------------------------------------------
   ## Abundance -----------------
   ### Filtered abundance by time and zip
   abund_data <- reactive ({
@@ -245,7 +278,7 @@ function(input, output, session) {
   
   
   ## WNV MIR  --------------------
-  ### Filtered mir by time and zip
+  ### Filtered MIR by time and zip
   wnv_data <- reactive ({
     df <- wnv_df %>% 
       filter(zipcode == zipcodeTrap_d(),
@@ -265,7 +298,7 @@ function(input, output, session) {
     return(xMean)
   })
   
-  ### Avg abund for time (all Kern)
+  ### Avg MIR for time (all Kern)
   avgWnv_kern <- reactive ({
     x <- wnv_df %>% 
       filter(date>=input$trap_dateRange[1] & date<=input$trap_dateRange[2])
@@ -638,7 +671,7 @@ function(input, output, session) {
     if(!(zipcodeTrap_d() %in% zips_sf$zipcode)) {
       return(NULL)
     } else {
-      paste("<b>","Fig. 3: Average minimum infection rates (MIR) for West Nile (top) and St. Lois Encephalitis (bottom) viruses within Kern County.","</b>", "The orange and yellow bars displays average weekly MIR for WNV and SLEV, respectivley, within zip code ", zipcodeTrap_d(), " between ", input$trap_dateRange[1], " and ", input$trap_dateRange[2], ". The dashed black line represents the average MIR within this time period across all Kern zip codes, while the dashed purple line shows average MIR in zip code ", zipcodeTrap_d(), " from 2010 to present.")
+      paste("<b>","Fig. 3: Average minimum infection rates (MIR) for West Nile (top) and St. Louis Encephalitis (bottom) viruses within Kern County.","</b>", "The orange and yellow bars displays average weekly MIR for WNV and SLEV, respectivley, within zip code ", zipcodeTrap_d(), " between ", input$trap_dateRange[1], " and ", input$trap_dateRange[2], ". The dashed black line represents the average MIR within this time period across all Kern zip codes, while the dashed purple line shows average MIR in zip code ", zipcodeTrap_d(), " from 2010 to present.")
     }
   })
   
@@ -1095,135 +1128,168 @@ function(input, output, session) {
   })
 
   
-  
   # TAB 3 - Standing Water ##################################################
-  # r = stack(here("data/water/p42_2023_stack.tif"))
-  # 
-  # output$waterMap <- renderLeaflet({
-  #   leaflet() %>%
-  #     addProviderTiles(providers$Esri.WorldImagery) %>%
-  #     addRasterImage(water_rast(), colors = 'dodgerblue4', project = FALSE,
-  #                    group = "water") %>% 
-  #     setView(-119.2, 35.38, zoom = 10)
-  # })
-  # 
-  # water_rast <- reactive({
-  #   date = input$waterDate
-  # 
-  #   if (date <= "2023-04-05") {
-  #     x=1
-  #   } else if (date <= "2023-04-13") {
-  #     x=2
-  #   } else if (date <= "2023-04-29") {
-  #     x=3
-  #   } else if (date <="2023-05-23") {
-  #     x=4
-  #   } else if (date <="2023-05-31") {
-  #     x=5
-  #   } else if (date <="2023-06-16") {
-  #     x=6
-  #   } else if (date <="2023-06-24") {
-  #     x=7
-  #   } else if (date <="2023-07-10") {
-  #     x=8
-  #   } else {
-  #     x=9
-  #   }
-  # 
-  #   rast = r[[x]]
-  # 
-  #   return(rast)
-  # })
-  # 
-  # test = reactive({r[[paste0("rast_", gsub("-", "_", input$waterDate))]]})
-  # 
-  # observe({
-  #   leafletProxy("waterMap") %>%
-  #     clearGroup("water") %>%
-  #     addRasterImage(water_rast(), colors = 'dodgerblue4', project = FALSE,
-  #                    group = "water")
-  # })
+  
+  ### Zip code box ----------------
+  ## React to user input and slightly delay response
+  zipcodeWater <- reactive(input$zip_box_water)
+  zipcodeWater_d <- debounce(zipcodeWater, millis = 1500)
+  
+  ## Validation text below zip box
+  ivTrap <- InputValidator$new()
+  ### Must be 5 numbers
+  ivTrap$add_rule("zip_box_water", function(length) {
+    length = nchar(zipcodeWater_d())
+    if (length !=5 & length != 0) {
+      "Only 5-character entries are permitted."
+    }
+  })
+  ### Must be zip in Kern
+  ivTrap$add_rule("zip_box_water", function(zipcodeWater_d) {
+    if (!(zipcodeWater_d() %in% zips_sf$zipcode) & nchar(zipcodeWater_d()) != 0) {
+      "Please enter a valid zip code."
+    } 
+  })
+  ivTrap$enable()
+  
+  ## WATER MAP ------------------------------------------------------------
+  output$waterMap <- renderLeaflet({
+    leaflet() %>% 
+      ## Add background maps
+      addTiles(group = "OpenStreetMaps") %>% 
+      addProviderTiles(providers$Esri.WorldImagery, group = "World Imagery") %>%
+      
+      ### Zip codes
+      addPolygons(data = zips_sf, color = "#343434",
+                  weight = 2, fillOpacity = 0.1,
+                  label = paste0("Zip code: ", zips_sf$zipcode),
+                  labelOptions = labelOptions(textsize = "11px"),
+                  highlight = highlightOptions(weight = 5,
+                                               color = "white",
+                                               bringToFront = TRUE),
+                  group = "Zip codes",
+                  layerId = ~zipcode) %>%  
+      
+      ### Kern county
+      addPolylines(data = kern_sf,
+                   color = 'black', weight = 4, fillOpacity = 0,
+                   group = "Kern county") %>% 
+      
+      ### Central valley
+      addPolylines(data = valley_sf,
+                   color = 'blue', weight = 2.5, fillOpacity = 0,
+                   group = "Central Valley") %>%
+      
+      ## Create map groups
+      addLayersControl(
+        baseGroups = c("OpenStreetMaps", "World Imagery"),
+        overlayGroups = c("Zip codes", "Kern county", "Central Valley"),
+        options = layersControlOptions(collapsed = TRUE),
+        position = "topleft") %>% 
+      
+      ## Don't show all layers by default
+      hideGroup(c("Kern county")) %>%
+      
+      setView(-119.2, 35.38, zoom = 9)
+  }) ##END LEAFLET
+  
+  ### Interactive Leaflet elements: 
+  ## Click on zip code polygon to input value in text box
+  observe({
+    event <- input$waterMap_shape_click
+    if(is.null(event$id))
+      return()
+    
+    ## change text box value
+    updateTextInput(session, 
+                    inputId = "zip_box_water", 
+                    value = event$id)
+  })
+  
+  ## Zoom and highlight zip code
+  observe({
+    ## establish zip code boundaries
+    geom <- zips_sf %>%
+      dplyr::filter(zipcode == input$zip_box_water)
+    bounds <- geom %>%
+      st_bbox() %>%
+      as.character()
+    
+    ## Update map
+    leafletProxy("waterMap") %>%
+      clearGroup("highlighted_polygon") %>%
+      ## zoom to zip
+      flyToBounds(lng1 = bounds[1], lat1 = bounds[2],
+                  lng2 = bounds[3], lat2 = bounds[4]) %>%
+      ## highlight selected zip
+      addPolylines(stroke=TRUE, weight = 5, color="yellow",
+                   fill = TRUE, fillColor = "white", fillOpacity = 0.4,
+                   data = geom, group = "highlighted_polygon")
+  })
   
   
-  # ### Zip code box ----------------
-  # ## React to user input and slightly delay response
-  # zipcodeWater <- reactive(input$zip_box_water)
-  # zipcodeWater_d <- debounce(zipcodeWater, millis = 1500)
-  # 
-  # ## Validation text below zip box
-  # ivTrap <- InputValidator$new()
-  # ### Must be 5 numbers
-  # ivTrap$add_rule("zip_box_water", function(length) {
-  #   length = nchar(zipcodeWater_d())
-  #   if (length !=5 & length != 0) {
-  #     "Only 5-character entries are permitted."
-  #   }
-  # })
-  # ### Must be zip in Kern
-  # ivTrap$add_rule("zip_box_water", function(zipcodeWater_d) {
-  #   if (!(zipcodeWater_d() %in% zips_sf$zipcode) & nchar(zipcodeWater_d()) != 0) {
-  #     "Please enter a valid zip code."
-  #   } 
-  # })
-  # ivTrap$enable()
-  # 
-  # 
-  # ## Water GIF ------------------
-  # output$waterGif <- renderUI({
-  #   if(!(zipcodeWater_d() %in% zips_sf$zipcode)) {
-  #     return(NULL)
-  #   } else {
-  #     ## Select gif based on zipcode and year
-  #     gif <- paste0("gifs/zip_", zipcodeWater_d(),
-  #                   "_", input$waterYear, ".gif")
-  #     img(src = gif, 
-  #         height = "450px")
-  #   }
-  # })
-  # 
-  # 
-  # ## test
-  # # output$waterTab_plot <- renderUI({
-  # #   img(src = "test.gif",
-  # #       height = "450px")
-  # # })
-  # 
-  # 
-  # ## Standing water time series ----------------
-  # 
-  # ## Filter water data based on zip input
-  # waterTab_data <- reactive({
-  #   water_filtered <- water_zip_df %>% 
-  #     filter(zipcode == zipcodeWater_d(),
-  #            year == input$waterYear)
-  #   return(water_filtered)
-  # })  
-  # 
-  # ## Plot
-  # output$waterTab_plot <- renderUI({
-  #   if (!(zipcodeWater_d() %in% zips_sf$zipcode)) {
-  #     return(NULL)
-  #   } else if (length(waterTab_data()$acres_int)==0) {
-  #     strong("No water data available for this time.")
-  #   } else {
-  #   renderPlot({
-  #     ggplot(data = waterTab_data(), aes(x = date, y = acres_int)) +
-  #         geom_point(color = "dodgerblue3", size = 4, alpha = 0.6) +
-  #         geom_line(linewidth = 0.6, color = "dodgerblue4") +
-  #         labs(y = "Surface water (acres)",
-  #              x = element_blank()) +
-  #         ## customize axis with cont 'date' class data
-  #         scale_x_date(date_breaks = "2 week",
-  #                      date_labels = "%d %b\n%Y") +
-  #         theme_classic() +
-  #         theme(
-  #           # axis.title.x = element_text(face = "bold", vjust = -1),
-  #           axis.title.y = element_text(vjust = 2, size = 14),
-  #           axis.text = element_text(size = 13)
-  #         ) 
-  #     }, height = 460)
-  #   }
-  # })
+  
+  ## Water video ------------------
+  output$waterVid <- renderUI({
+    if(!(zipcodeWater_d() %in% zips_sf$zipcode)) {
+      return(NULL)
+    } else {
+      ## Select gif based on zipcode and year
+      vid <- paste0("vids/zip_", zipcodeWater_d(),
+                    "_2022_2023.mp4")
+      tags$video(src = vid, 
+                 height = "440px", autoplay = TRUE, controls = TRUE)
+    }
+  })
+  
+  
+  ## Standing water time series ----------------
+  
+  ## Filter water data based on zip input
+  waterTab_data <- reactive({
+    water_filtered <- water_zip_df %>% 
+      filter(zipcode == zipcodeWater_d())
+    # year == input$waterYear)
+    return(water_filtered)
+  })  
+  
+  ## Plot
+  output$waterTab_plot <- renderUI({
+    if (!(zipcodeWater_d() %in% zips_sf$zipcode)) {
+      return(NULL)
+    } else if (length(waterTab_data()$acres_int)==0) {
+      strong("No water data available for this time.")
+    } else {
+      renderGirafe({
+        waterPlot <- ggplot(data = waterTab_data(), aes(x = date, y = acres_int)) +
+          geom_point_interactive(color = "dodgerblue3", size = 4, alpha = 0.6,
+                                 ## interactive elements
+                                 aes(tooltip = paste0(waterTab_data()$date_plot,
+                                                      "\n", round(waterTab_data()$acres_int,2),
+                                                      " acres"), 
+                                     size = 1.5,
+                                     tooltip_fill = "dodgerblue4",
+                                     hover_nearest=TRUE)
+          ) +
+          geom_line_interactive(linewidth = 0.6, color = "dodgerblue4") +
+          labs(y = "Surface water (acres)",
+               x = element_blank()) +
+          ## customize axis with cont 'date' class data
+          scale_x_date(date_breaks = "2 month",
+                       date_labels = "%b\n%Y")+
+          theme_minimal() +
+          theme(
+            # axis.title.x = element_text(face = "bold", vjust = -1),
+            axis.title.y = element_text(vjust = 2, size = 12),
+            axis.text = element_text(size = 10)
+          )
+        x <- girafe(ggobj = waterPlot)
+        # height_svg = 7, width_svg = 9)
+        x <- girafe_options(x, opts_zoom(min = 1, max = 2.5),
+                            opts_tooltip(use_fill=TRUE, opacity = 0.8))
+      })
+    }
+  })
 
   
   
