@@ -5,7 +5,7 @@ account: n-mcmanus
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 10432468
-bundleId: 8261102
+bundleId: 8264945
 url: https://n-mcmanus.shinyapps.io/kern_mosquito_shiny/
 asMultiple: FALSE
 asStatic: FALSE
